@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Forecast App</title>
+    <style type="text/css">
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f8ff;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Video background */
+        .video-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -1; /* Send video behind other elements */
+        }
+
+        /* Container styles */
+        .container {
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 80%;
+            max-width: 1200px;
+            overflow-y: auto;
+            max-height: 90vh;
+            position: relative;
+            z-index: 1; /* Ensure content is above the video */
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        .search-box {
+            position: relative;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .search-box input {
+            width: 80%;
+            padding: 10px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .search-box button {
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .search-box button:hover {
+            background-color: #0056b3;
+        }
+
+        #weatherResult h2,
+        #weatherResult p {
+            margin: 10px 0;
+        }
+
+        /* Grid layout and card styles for the 16-day forecast */
+        #forecastResult {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-gap: 20px;
+            margin-top: 20px;
+        }
+
+        .forecast-day {
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 15px;
+            text-align: center;
+            transition: transform 0.2s ease;
+        }
+
+        .forecast-day:hover {
+            transform: scale(1.05);
+        }
+
+        .forecast-day h3 {
+            margin: 10px 0;
+            font-size: 1.2em;
+            color: #333;
+        }
+
+        .forecast-day p {
+            margin: 8px 0;
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        /* Dropdown styles */
+        .dropdown {
+            position: absolute;
+            top: 50px;
+            left: 0;
+            width: 80%;
+            background-color: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 2;
+            display: none; /* Hidden by default */
+        }
+
+        .dropdown p {
+            margin: 0;
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .dropdown p:last-child {
+            border-bottom: none;
+        }
+
+        /* Green button style for previously searched cities */
+        .city-button {
+            background-color: green; /* Green background */
+            color: white;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            width: 100%;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .city-button:hover {
+            background-color: green; /* Darker green on hover */
+        }
+    </style>
+</head>
+<body>
+    <video class="video-background" autoplay loop muted>
+        <source src="img/clip.mp4" type="video/mp4"> <!-- Update this path to your video file -->
+        Your browser does not support the video tag.
+    </video>
+
+    <div class="container">
+        <h1>Weather Forecast</h1>
+        <div class="search-box">
+            <input type="text" id="cityInput" placeholder="Enter city name" oninput="showPreviousCities()">
+            <button onclick="getWeather()">Get Weather</button>
+            <div class="dropdown" id="cityDropdown"></div>
+        </div>
+        <div id="weatherResult">
+            <h2 id="location"></h2>
+            <p id="description"></p>
+            <p id="temperature"></p>
+            <p id="humidity"></p>
+            <p id="wind"></p>
+            <p id="observationTime"></p>
+        </div>
+        <h2>16-Day Forecast</h2>
+        <div id="forecastResult"></div>
+    </div>
+
+    <script>
+        const apiKey = '1679ca2dc5794b8b817e3a04973fc2c0';  // Replace with your Weatherbit API key
+        const maxCities = 6;  // Store a maximum of 6 previous cities
+
+        async function getWeather() {
+            const city = document.getElementById('cityInput').value;
+            if (!city) return;
+            
+            const currentWeatherUrl = `https://api.weatherbit.io/v2.0/current?city=${city}&key=${apiKey}&units=M`;
+            const forecastUrl = `https://api.weatherbit.io/v2.0/forecast/daily?city=${city}&key=${apiKey}&units=M&days=16`;
+
+            try {
+                // Fetch current weather
+                const currentWeatherResponse = await fetch(currentWeatherUrl);
+                if (!currentWeatherResponse.ok) throw new Error('City not found');
+                const currentWeatherData = await currentWeatherResponse.json();
+                displayWeather(currentWeatherData);
+
+                // Fetch 16-day forecast
+                const forecastResponse = await fetch(forecastUrl);
+                if (!forecastResponse.ok) throw new Error('Forecast data not found');
+                const forecastData = await forecastResponse.json();
+                displayForecast(forecastData);
+
+                saveCity(city);
+                showPreviousCities();  // Update the city list
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        function displayWeather(data) {
+            const weatherData = data.data[0];
+            const location = `${weatherData.city_name}, ${weatherData.country_code}`;
+            const description = weatherData.weather.description;
+            const temperature = `Temperature: ${weatherData.temp} °C`;
+            const humidity = `Humidity: ${weatherData.rh}%`;
+            const wind = `Wind Speed: ${weatherData.wind_spd} m/s`;
+            const observationTime = `Observation Time: ${weatherData.ob_time}`;
+
+            document.getElementById('location').textContent = location;
+            document.getElementById('description').textContent = description;
+            document.getElementById('temperature').textContent = temperature;
+            document.getElementById('humidity').textContent = humidity;
+            document.getElementById('wind').textContent = wind;
+            document.getElementById('observationTime').textContent = observationTime;
+        }
+
+        // Save city to local storage and manage a maximum of 6 previous cities
+        function saveCity(city) {
+            let cities = JSON.parse(localStorage.getItem('previousCities')) || [];
+            cities = cities.filter(c => c.toLowerCase() !== city.toLowerCase());
+            cities.unshift(city);
+            if (cities.length > maxCities) cities.pop();
+            localStorage.setItem('previousCities', JSON.stringify(cities));
+        }
+
+        // Show dropdown with previously searched cities
+        function showPreviousCities() {
+            const input = document.getElementById('cityInput').value.toLowerCase();
+            const dropdown = document.getElementById('cityDropdown');
+            const cities = JSON.parse(localStorage.getItem('previousCities')) || [];
+            const filteredCities = cities.filter(city => city.toLowerCase().startsWith(input));
+            dropdown.innerHTML = '';
+
+            if (filteredCities.length > 0) {
+                dropdown.style.display = 'block';
+                filteredCities.forEach(city => {
+                    const cityElement = document.createElement('p');
+                    cityElement.innerHTML = `<button class="city-button">${city}</button>`;
+                    cityElement.onclick = function() {
+                        document.getElementById('cityInput').value = city;
+                        dropdown.style.display = 'none';
+                    };
+                    dropdown.appendChild(cityElement);
+                });
+            } else {
+                dropdown.style.display = 'none';
+            }
+        }
+
+        // Hide dropdown if the input box is empty
+        document.getElementById('cityInput').addEventListener('blur', function() {
+            setTimeout(() => {
+                document.getElementById('cityDropdown').style.display = 'none';
+            }, 200);  // Delay to allow city selection
+        });
+
+        // Display the 16-day forecast
+        function displayForecast(data) {
+            const forecastContainer = document.getElementById('forecastResult');
+            forecastContainer.innerHTML = '';  // Clear previous results
+
+            data.data.forEach(day => {
+                const forecastDay = document.createElement('div');
+                forecastDay.classList.add('forecast-day');
+
+                const date = new Date(day.datetime).toDateString();
+                const temp = `Temp: ${day.temp} °C`;
+                const description = day.weather.description;
+                const windSpeed = `Wind Speed: ${day.wind_spd} m/s`;
+                const windDirection = `Wind Direction: ${day.wind_cdir}`;
+                const humidity = `Humidity: ${day.rh}%`;
+                const forecastTime = `Forecast Date: ${day.datetime}`;
+
+                forecastDay.innerHTML = `
+                    <h3>${date}</h3>
+                    <p>${description}</p>
+                    <p>${temp}</p>
+                    <p>${windSpeed}</p>
+                    <p>${windDirection}</p>
+                    <p>${humidity}</p>
+                    <p>${forecastTime}</p>
+                `;
+                forecastContainer.appendChild(forecastDay);
+            });
+        }
+    </script>
+</body>
+</html>
